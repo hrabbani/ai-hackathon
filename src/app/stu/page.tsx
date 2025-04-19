@@ -1,9 +1,23 @@
 "use client";
 import { useState } from "react";
 
+interface Track {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  popularity: number;
+}
+
+interface SearchResults {
+  tracks: Track[];
+}
+
 export default function Home() {
   const [userInput, setUserInput] = useState("");
-  const [searchResults, setSearchResults] = useState(null);
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
