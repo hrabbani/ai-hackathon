@@ -1,16 +1,9 @@
 "use client";
+import { SpotifyTrack } from "@/lib/mcp/spotify-api";
 import { useState } from "react";
 
-interface Track {
-  id: string;
-  name: string;
-  artist: string;
-  album: string;
-  popularity: number;
-}
-
 interface SearchResults {
-  tracks: Track[];
+  tracks: SpotifyTrack[];
 }
 
 export default function Home() {
@@ -38,6 +31,7 @@ export default function Home() {
       }
 
       const results = await response.json();
+      console.log(results.length);
       setSearchResults(results);
     } catch (error) {
       console.error("Error finding music:", error);
