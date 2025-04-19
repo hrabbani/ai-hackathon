@@ -72,6 +72,10 @@ interface SpotifyTrackInfo {
   acoustic_features?: Record<string, unknown>;
 }
 
+interface AcousticFeatureValue {
+  all: Record<string, number>;
+}
+
 // Generic interface for search response from Spotify API
 interface SpotifyApiResponse {
   tracks?: {
@@ -297,6 +301,21 @@ export class SpotifyClient {
         // Add the acoustic features to the track
         enhancedTrack.acoustic_features =
           response.data[track.mbid][0].highlevel;
+      }
+
+      console.log("Full acoustic features:");
+      if (enhancedTrack.acoustic_features) {
+        const unrolledFeatures: Record<string, Record<string, number>> = {};
+
+        for (const [feature, value] of Object.entries(
+          enhancedTrack.acoustic_features
+        )) {
+          if (value && typeof value === "object" && "all" in value) {
+            unrolledFeatures[feature] = (value as AcousticFeatureValue).all;
+          }
+        }
+
+        enhancedTrack.acoustic_features = unrolledFeatures;
       }
 
       return enhancedTrack;

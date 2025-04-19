@@ -21,6 +21,9 @@ export default function Home() {
   );
   const [isLoading, setIsLoading] = useState(false);
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null);
+  const [expandedAllFeatures, setExpandedAllFeatures] = useState<
+    Record<string, boolean>
+  >({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,42 +60,94 @@ export default function Home() {
     }
   };
 
+  const toggleAllFeatures = (trackId: string) => {
+    setExpandedAllFeatures((prev) => ({
+      ...prev,
+      [trackId]: !prev[trackId],
+    }));
+  };
+
   // Function to display the acoustic features in a readable format
-  const renderAcousticFeatures = (features: Record<string, unknown>) => {
+  const renderAcousticFeatures = (
+    features: Record<string, unknown>,
+    trackId: string
+  ) => {
     return (
       <div className="mt-3 border-t pt-3 text-sm">
-        <h4 className="font-medium mb-2 text-black">Acoustic Features:</h4>
+        <h4 className="font-bold mb-2 text-black">Acoustic Features:</h4>
         <div className="grid grid-cols-2 gap-2">
-          {Object.entries(features).map(([key, value]) => {
-            if (typeof value === "object" && value !== null) {
-              return (
-                <div key={key} className="col-span-2 mb-2">
-                  <h5 className="font-medium text-black">{key}</h5>
-                  <div className="pl-2 border-l-2 border-blue-200">
-                    {Object.entries(value as Record<string, unknown>).map(
-                      ([subKey, subValue]) => (
-                        <div key={subKey} className="flex justify-between">
-                          <span className="text-black">{subKey}:</span>
-                          <span className="font-mono text-black">
-                            {typeof subValue === "number"
-                              ? subValue.toFixed(4)
-                              : String(subValue)}
-                          </span>
-                        </div>
-                      )
+          {Object.entries(features)
+            .filter(([key]) => key !== "version") // Remove version key
+            .map(([key, value]) => {
+              if (
+                key === "all" &&
+                typeof value === "object" &&
+                value !== null
+              ) {
+                // Special handling for "all" property to make it expandable
+                return (
+                  <div key={key} className="col-span-2 mb-2">
+                    <div
+                      className="flex justify-between items-center cursor-pointer"
+                      onClick={() => toggleAllFeatures(trackId)}
+                    >
+                      <h5 className="font-bold text-black">{key}</h5>
+                      <span className="text-blue-600 font-bold">
+                        {expandedAllFeatures[trackId] ? "▼" : "►"}
+                      </span>
+                    </div>
+
+                    {expandedAllFeatures[trackId] && (
+                      <div className="pl-2 border-l-2 border-blue-200 mt-1">
+                        {Object.entries(value as Record<string, unknown>).map(
+                          ([subKey, subValue]) => (
+                            <div key={subKey} className="flex justify-between">
+                              <span className="text-black">{subKey}:</span>
+                              <span className="font-mono text-black">
+                                {typeof subValue === "number"
+                                  ? subValue.toFixed(4)
+                                  : String(subValue)}
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
-              );
-            } else {
-              return (
-                <div key={key} className="flex justify-between">
-                  <span className="text-black">{key}:</span>
-                  <span className="font-mono text-black">{String(value)}</span>
-                </div>
-              );
-            }
-          })}
+                );
+              } else if (typeof value === "object" && value !== null) {
+                // Regular rendering for other objects
+                return (
+                  <div key={key} className="col-span-2 mb-2">
+                    <h5 className="font-bold text-black">{key}</h5>
+                    <div className="pl-2 border-l-2 border-blue-200">
+                      {Object.entries(value as Record<string, unknown>).map(
+                        ([subKey, subValue]) => (
+                          <div key={subKey} className="flex justify-between">
+                            <span className="text-black">{subKey}:</span>
+                            <span className="font-mono text-black">
+                              {typeof subValue === "number"
+                                ? subValue.toFixed(4)
+                                : String(subValue)}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              } else {
+                // Regular rendering for primitive values
+                return (
+                  <div key={key} className="flex justify-between">
+                    <span className="font-bold text-black">{key}:</span>
+                    <span className="font-mono text-black">
+                      {String(value)}
+                    </span>
+                  </div>
+                );
+              }
+            })}
         </div>
       </div>
     );
@@ -154,7 +209,7 @@ export default function Home() {
 
                 {expandedTrack === track.id &&
                   track.acoustic_features &&
-                  renderAcousticFeatures(track.acoustic_features)}
+                  renderAcousticFeatures(track.acoustic_features, track.id)}
               </div>
             ))}
           </div>
