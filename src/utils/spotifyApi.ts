@@ -127,6 +127,7 @@ export const getAlbumCover = async (
   accessToken: string
 ): Promise<string | null> => {
   try {
+    console.log(`Searching for track: "${songName}" by "${artistName}"`);
     // Search for the track
     const searchResponse = await axios.get(
       `${SPOTIFY_API_BASE_URL}/search`,
@@ -142,10 +143,15 @@ export const getAlbumCover = async (
       }
     );
 
+    console.log('Search response:', searchResponse.data);
     const track = searchResponse.data.tracks.items[0];
     if (!track) {
+      console.log('No track found');
       return null;
     }
+
+    console.log(`Found track: ${track.name} - ${track.artists[0].name}`);
+    console.log(`Album ID: ${track.album.id}`);
 
     // Get the album details
     const albumResponse = await axios.get<SpotifyAlbum>(
@@ -157,15 +163,23 @@ export const getAlbumCover = async (
       }
     );
 
+    console.log('Album response:', albumResponse.data);
     // Return the medium-sized image (usually 300x300)
     const images = albumResponse.data.images;
     if (images.length > 0) {
-      return images[1]?.url || images[0].url;
+      const imageUrl = images[1]?.url || images[0].url;
+      console.log('Selected image URL:', imageUrl);
+      return imageUrl;
     }
 
+    console.log('No images found for album');
     return null;
-  } catch (error) {
-    console.error('Error fetching album cover:', error);
+  } catch (error: any) {
+    console.error('Error fetching album cover:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
     return null;
   }
 }; 

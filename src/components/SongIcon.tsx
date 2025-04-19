@@ -7,6 +7,7 @@ type SongIconProps = {
   onClick?: () => void;
   selected?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 };
 
 const SongIcon: React.FC<SongIconProps> = ({
@@ -16,20 +17,23 @@ const SongIcon: React.FC<SongIconProps> = ({
   onClick,
   selected = false,
   className = "",
+  style = {},
 }) => {
   return (
     <button
       className={`flex flex-col items-center w-40 p-2 transition 
-                  hover:scale-105 focus:outline-none font-mono ${className}`}
+                  hover:scale-105 focus:outline-none font-mono ${className}
+                  ${selected ? 'bg-pink-100 rounded-lg' : ''}`}
       onClick={onClick}
       tabIndex={0}
       aria-label={`View details for ${title} by ${artist}`}
       type="button"
+      style={style}
     >
       <img
         src={albumArtUrl}
         alt={`Album cover for ${title} by ${artist}`}
-        className="w-32 h-32 object-cover mb-1"
+        className="w-32 h-32 object-cover mb-1 rounded-sm"
         draggable={false}
       />
       <div className="w-full text-center">
