@@ -1,5 +1,6 @@
 import SpotifyWebApi from "spotify-web-api-node";
 import dotenv from "dotenv";
+import axios from "axios";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -14,6 +15,117 @@ requiredEnvVars.forEach((varName) => {
     throw new Error(`Missing required environment variable: ${varName}`);
   }
 });
+
+// Define interfaces for the different item types
+interface SpotifyTrack {
+  id: string;
+  name: string;
+  uri: string;
+  artist: string;
+  album: string;
+  duration_ms: number;
+  popularity: number;
+}
+
+interface SpotifyAlbum {
+  id: string;
+  name: string;
+  uri: string;
+  artist: string;
+  release_date: string;
+  total_tracks: number;
+}
+
+interface SpotifyArtist {
+  id: string;
+  name: string;
+  uri: string;
+  genres: string[];
+  popularity: number;
+}
+
+interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  uri: string;
+  owner: string;
+  tracks_total: number;
+}
+
+// Define the search results interface
+interface SearchResults {
+  tracks?: SpotifyTrack[];
+  albums?: SpotifyAlbum[];
+  artists?: SpotifyArtist[];
+  playlists?: SpotifyPlaylist[];
+}
+
+type SearchType = "track" | "album" | "artist" | "playlist";
+
+// Define interfaces for the Spotify API responses and other types
+interface SpotifyTrackInfo {
+  name: string;
+  isrc?: string;
+  album?: string;
+  mbid?: string;
+  acoustic_features?: Record<string, unknown>;
+}
+
+// Generic interface for search response from Spotify API
+interface SpotifyApiResponse {
+  tracks?: {
+    items: Array<{
+      id: string;
+      name: string;
+      uri: string;
+      artists: Array<{ name: string }>;
+      album: { name: string };
+      duration_ms: number;
+      popularity: number;
+      external_ids: { isrc?: string };
+    }>;
+  };
+  albums?: {
+    items: Array<{
+      id: string;
+      name: string;
+      uri: string;
+      artists: Array<{ name: string }>;
+      release_date: string;
+      total_tracks: number;
+    }>;
+  };
+  artists?: {
+    items: Array<{
+      id: string;
+      name: string;
+      uri: string;
+      genres: string[];
+      popularity: number;
+    }>;
+  };
+  playlists?: {
+    items: Array<{
+      id: string;
+      name: string;
+      uri: string;
+      owner: { display_name?: string };
+      tracks: { total: number };
+    }>;
+  };
+}
+
+// Define type for Spotify track response item to use in parseTrackInfo
+interface SpotifyTrackResponseItem {
+  id: string;
+  name: string;
+  uri: string;
+  artists: { name: string }[];
+  album: { name: string };
+  duration_ms: number;
+  popularity: number;
+  external_ids: { isrc?: string };
+}
 
 /**
  * SpotifyClient manages the connection to the Spotify Web API.
@@ -61,9 +173,9 @@ export class SpotifyClient {
    */
   async search(
     query: string,
-    type: string = "track",
+    type: SearchType = "track",
     limit: number = 10
-  ): Promise<any> {
+  ): Promise<SearchResults> {
     try {
       // Ensure we have a valid token
       await this.ensureToken();
@@ -72,18 +184,23 @@ export class SpotifyClient {
       console.log("Search Query:", query);
 
       // Perform the search
-      const response = await this.api.search(
-        query,
-        [type as "track" | "album" | "artist" | "playlist"],
-        { limit }
-      );
+      const response = await this.api.search(query, [type], { limit });
       // Check if tracks exist in response before accessing
       if (response.body.tracks?.items) {
         console.log("Spotify response:", response.body.tracks.items);
       }
 
-      console.log("Track names:");
-      console.log(this.parseTrackNames(response.body));
+      console.log("Track names and ids:");
+      if (response.body.tracks?.items) {
+        console.log(this.parseTrackInfo(response.body.tracks.items));
+
+        const trackInfo = this.parseTrackInfo(response.body.tracks.items);
+        console.log("Musicbrainz api call result:");
+        const musicbrainzResult = await this.musicBrainzSearch(trackInfo);
+        console.log(musicbrainzResult);
+
+        this.acousticBrainzSearch(musicbrainzResult);
+      }
 
       // Format the results based on the type
       return this.parseSearchResults(response.body, type);
@@ -93,12 +210,80 @@ export class SpotifyClient {
     }
   }
 
-  // Parse track names and isrcs from responses for musicbrainz api
-  public parseTrackNames(results: any): any {
-    return results.tracks.items.map((track: any) => ({
+  /**
+   * Parses track information from Spotify API response for musicbrainz api.
+   * @param tracks - Array of track objects from Spotify API response
+   * @returns Array of objects with track name, isrc, and album
+   */
+  public parseTrackInfo(
+    tracks: SpotifyTrackResponseItem[]
+  ): SpotifyTrackInfo[] {
+    return tracks.map((track) => ({
       name: track.name,
       isrc: track.external_ids.isrc,
+      album: track.album.name,
     }));
+  }
+
+  public async musicBrainzSearch(
+    tracks: SpotifyTrackInfo[]
+  ): Promise<SpotifyTrackInfo[]> {
+    const musicbrainz_url = "https://musicbrainz.org/ws/2/recording?query=";
+
+    const tracksWithMbid = await Promise.all(
+      tracks.map(async (track) => {
+        if (track.isrc) {
+          const query = `${musicbrainz_url}isrc:${track.isrc}&fmt=json`;
+          const response = await axios.get(query);
+          return {
+            ...track,
+            mbid: response.data.recordings[0]?.id,
+          };
+        }
+        return track;
+      })
+    );
+
+    return tracksWithMbid;
+  }
+
+  public async acousticBrainzSearch(
+    tracks: SpotifyTrackInfo[]
+  ): Promise<SpotifyTrackInfo[]> {
+    const acousticBrainz_url = "https://acousticbrainz.org/api/v1/high-level?";
+
+    const mbids = tracks.map((track) => track.mbid).filter(Boolean);
+
+    // Join mbids into a string separated by semicolons
+    const mbidsString = mbids.join(";");
+    console.log("query:", `${acousticBrainz_url}recording_ids=${mbidsString}`);
+
+    const response = await axios.get(
+      `${acousticBrainz_url}recording_ids=${mbidsString}`
+    );
+
+    console.log(response.data);
+
+    // Create a new array with acoustic features added to tracks
+    const tracksWithFeatures = tracks.map((track) => {
+      // Create a copy of the track
+      const enhancedTrack = { ...track };
+
+      // Check if this track's mbid exists in the response data
+      if (track.mbid && response.data[track.mbid]) {
+        // Add the acoustic features to the track
+        enhancedTrack.acoustic_features =
+          response.data[track.mbid][0].highlevel;
+      }
+
+      return enhancedTrack;
+    });
+
+    // Log the enhanced tracks
+    console.log("Tracks with acoustic features:");
+    console.log(tracksWithFeatures);
+
+    return tracksWithFeatures;
   }
 
   /**
@@ -108,16 +293,19 @@ export class SpotifyClient {
    * @param type Type of items that were searched
    * @returns Formatted search results
    */
-  private parseSearchResults(results: any, type: string): any {
-    const formattedResults: any = {};
+  private parseSearchResults(
+    results: SpotifyApiResponse,
+    type: string
+  ): SearchResults {
+    const formattedResults: SearchResults = {};
 
     // Process different result types
     if (type.includes("track") && results.tracks) {
-      formattedResults.tracks = results.tracks.items.map((track: any) => ({
+      formattedResults.tracks = results.tracks.items.map((track) => ({
         id: track.id,
         name: track.name,
         uri: track.uri,
-        artist: track.artists.map((a: any) => a.name).join(", "),
+        artist: track.artists.map((a) => a.name).join(", "),
         album: track.album.name,
         duration_ms: track.duration_ms,
         popularity: track.popularity,
@@ -125,18 +313,18 @@ export class SpotifyClient {
     }
 
     if (type.includes("album") && results.albums) {
-      formattedResults.albums = results.albums.items.map((album: any) => ({
+      formattedResults.albums = results.albums.items.map((album) => ({
         id: album.id,
         name: album.name,
         uri: album.uri,
-        artist: album.artists.map((a: any) => a.name).join(", "),
+        artist: album.artists.map((a) => a.name).join(", "),
         release_date: album.release_date,
         total_tracks: album.total_tracks,
       }));
     }
 
     if (type.includes("artist") && results.artists) {
-      formattedResults.artists = results.artists.items.map((artist: any) => ({
+      formattedResults.artists = results.artists.items.map((artist) => ({
         id: artist.id,
         name: artist.name,
         uri: artist.uri,
@@ -146,15 +334,13 @@ export class SpotifyClient {
     }
 
     if (type.includes("playlist") && results.playlists) {
-      formattedResults.playlists = results.playlists.items.map(
-        (playlist: any) => ({
-          id: playlist.id,
-          name: playlist.name,
-          uri: playlist.uri,
-          owner: playlist.owner.display_name,
-          tracks_total: playlist.tracks.total,
-        })
-      );
+      formattedResults.playlists = results.playlists.items.map((playlist) => ({
+        id: playlist.id,
+        name: playlist.name,
+        uri: playlist.uri,
+        owner: playlist.owner.display_name || "Unknown",
+        tracks_total: playlist.tracks.total,
+      }));
     }
 
     return formattedResults;
