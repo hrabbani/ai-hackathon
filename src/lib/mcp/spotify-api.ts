@@ -68,12 +68,22 @@ export class SpotifyClient {
       // Ensure we have a valid token
       await this.ensureToken();
 
+      // NEED TO ADD MODEL LOGIC TO TRANSLATE QUERY PROPERLY
+      console.log("Search Query:", query);
+
       // Perform the search
       const response = await this.api.search(
         query,
         [type as "track" | "album" | "artist" | "playlist"],
         { limit }
       );
+      // Check if tracks exist in response before accessing
+      if (response.body.tracks?.items) {
+        console.log("Spotify response:", response.body.tracks.items);
+      }
+
+      console.log("Track names:");
+      console.log(this.parseTrackNames(response.body));
 
       // Format the results based on the type
       return this.parseSearchResults(response.body, type);
@@ -82,8 +92,14 @@ export class SpotifyClient {
       throw error;
     }
   }
+
+  // Parse track names from responses for musicbrainz api
+  public parseTrackNames(results: any): any {
+    return results.tracks.items.map((track: any) => track.name);
+  }
+
   /**
-   * Parses and formats search results from Spotify API.
+   * Parses and formats search results from Spotify API for frontend display.
    *
    * @param results Raw search results from Spotify API
    * @param type Type of items that were searched
