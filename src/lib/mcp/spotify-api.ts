@@ -15,6 +15,52 @@ requiredEnvVars.forEach((varName) => {
   }
 });
 
+// Define interfaces for the different item types
+interface SpotifyTrack {
+  id: string;
+  name: string;
+  uri: string;
+  artist: string;
+  album: string;
+  duration_ms: number;
+  popularity: number;
+}
+
+interface SpotifyAlbum {
+  id: string;
+  name: string;
+  uri: string;
+  artist: string;
+  release_date: string;
+  total_tracks: number;
+}
+
+interface SpotifyArtist {
+  id: string;
+  name: string;
+  uri: string;
+  genres: string[];
+  popularity: number;
+}
+
+interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  uri: string;
+  owner: string;
+  tracks_total: number;
+}
+
+// Define the search results interface
+interface SearchResults {
+  tracks?: SpotifyTrack[];
+  albums?: SpotifyAlbum[];
+  artists?: SpotifyArtist[];
+  playlists?: SpotifyPlaylist[];
+}
+
+type SearchType = "track" | "album" | "artist" | "playlist";
+
 /**
  * SpotifyClient manages the connection to the Spotify Web API.
  * It handles authentication and provides methods to search for music.
@@ -61,9 +107,9 @@ export class SpotifyClient {
    */
   async search(
     query: string,
-    type: string = "track",
+    type: SearchType = "track",
     limit: number = 10
-  ): Promise<any> {
+  ): Promise<SearchResults> {
     try {
       // Ensure we have a valid token
       await this.ensureToken();
@@ -89,16 +135,19 @@ export class SpotifyClient {
    * @param type Type of items that were searched
    * @returns Formatted search results
    */
-  private parseSearchResults(results: any, type: string): any {
-    const formattedResults: any = {};
+  private parseSearchResults(
+    results: SpotifyApi.SearchResponse,
+    type: SearchType
+  ): SearchResults {
+    const formattedResults: SearchResults = {};
 
     // Process different result types
     if (type.includes("track") && results.tracks) {
-      formattedResults.tracks = results.tracks.items.map((track: any) => ({
+      formattedResults.tracks = results.tracks.items.map((track) => ({
         id: track.id,
         name: track.name,
         uri: track.uri,
-        artist: track.artists.map((a: any) => a.name).join(", "),
+        artist: track.artists.map((a) => a.name).join(", "),
         album: track.album.name,
         duration_ms: track.duration_ms,
         popularity: track.popularity,
@@ -106,18 +155,18 @@ export class SpotifyClient {
     }
 
     if (type.includes("album") && results.albums) {
-      formattedResults.albums = results.albums.items.map((album: any) => ({
+      formattedResults.albums = results.albums.items.map((album) => ({
         id: album.id,
         name: album.name,
         uri: album.uri,
-        artist: album.artists.map((a: any) => a.name).join(", "),
+        artist: album.artists.map((a) => a.name).join(", "),
         release_date: album.release_date,
         total_tracks: album.total_tracks,
       }));
     }
 
     if (type.includes("artist") && results.artists) {
-      formattedResults.artists = results.artists.items.map((artist: any) => ({
+      formattedResults.artists = results.artists.items.map((artist) => ({
         id: artist.id,
         name: artist.name,
         uri: artist.uri,
@@ -127,15 +176,13 @@ export class SpotifyClient {
     }
 
     if (type.includes("playlist") && results.playlists) {
-      formattedResults.playlists = results.playlists.items.map(
-        (playlist: any) => ({
-          id: playlist.id,
-          name: playlist.name,
-          uri: playlist.uri,
-          owner: playlist.owner.display_name,
-          tracks_total: playlist.tracks.total,
-        })
-      );
+      formattedResults.playlists = results.playlists.items.map((playlist) => ({
+        id: playlist.id,
+        name: playlist.name,
+        uri: playlist.uri,
+        owner: playlist.owner.display_name || "Unknown Owner",
+        tracks_total: playlist.tracks.total,
+      }));
     }
 
     return formattedResults;
