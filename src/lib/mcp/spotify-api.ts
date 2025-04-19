@@ -58,6 +58,7 @@ interface SearchResults {
   albums?: SpotifyAlbum[];
   artists?: SpotifyArtist[];
   playlists?: SpotifyPlaylist[];
+  acoustic_features?: Record<string, unknown>;
 }
 
 type SearchType = "track" | "album" | "artist" | "playlist";
@@ -191,19 +192,41 @@ export class SpotifyClient {
       }
 
       console.log("Track names and ids:");
+      let tracksWithFeatures: SpotifyTrackInfo[] = [];
+
       if (response.body.tracks?.items) {
-        console.log(this.parseTrackInfo(response.body.tracks.items));
-
         const trackInfo = this.parseTrackInfo(response.body.tracks.items);
-        console.log("Musicbrainz api call result:");
-        const musicbrainzResult = await this.musicBrainzSearch(trackInfo);
-        console.log(musicbrainzResult);
+        console.log("Track info:", trackInfo);
 
-        this.acousticBrainzSearch(musicbrainzResult);
+        // Get Music Brainz IDs
+        const musicbrainzResult = await this.musicBrainzSearch(trackInfo);
+        console.log("Musicbrainz api call result:", musicbrainzResult);
+
+        // Get Acoustic Brainz features
+        tracksWithFeatures = await this.acousticBrainzSearch(musicbrainzResult);
+        console.log("Tracks with acoustic features:", tracksWithFeatures);
       }
 
       // Format the results based on the type
-      return this.parseSearchResults(response.body, type);
+      const results = this.parseSearchResults(response.body, type);
+
+      // Add acoustic features to the results if we have them
+      if (tracksWithFeatures.length > 0 && results.tracks) {
+        results.tracks = results.tracks.map((track) => {
+          const trackWithFeatures = tracksWithFeatures.find(
+            (t) => t.name === track.name
+          );
+          if (trackWithFeatures && trackWithFeatures.acoustic_features) {
+            return {
+              ...track,
+              acoustic_features: trackWithFeatures.acoustic_features,
+            };
+          }
+          return track;
+        });
+      }
+
+      return results;
     } catch (error) {
       console.error("Error searching Spotify:", error);
       throw error;

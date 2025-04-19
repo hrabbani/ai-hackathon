@@ -7,6 +7,7 @@ interface Track {
   artist: string;
   album: string;
   popularity: number;
+  acoustic_features?: Record<string, unknown>;
 }
 
 interface SearchResults {
@@ -19,6 +20,7 @@ export default function Home() {
     null
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedTrack, setExpandedTrack] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +48,56 @@ export default function Home() {
       setUserInput(""); // Clear input after submission
     }
   };
+
+  const toggleTrackDetails = (trackId: string) => {
+    if (expandedTrack === trackId) {
+      setExpandedTrack(null);
+    } else {
+      setExpandedTrack(trackId);
+    }
+  };
+
+  // Function to display the acoustic features in a readable format
+  const renderAcousticFeatures = (features: Record<string, unknown>) => {
+    return (
+      <div className="mt-3 border-t pt-3 text-sm">
+        <h4 className="font-medium mb-2 text-black">Acoustic Features:</h4>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(features).map(([key, value]) => {
+            if (typeof value === "object" && value !== null) {
+              return (
+                <div key={key} className="col-span-2 mb-2">
+                  <h5 className="font-medium text-black">{key}</h5>
+                  <div className="pl-2 border-l-2 border-blue-200">
+                    {Object.entries(value as Record<string, unknown>).map(
+                      ([subKey, subValue]) => (
+                        <div key={subKey} className="flex justify-between">
+                          <span className="text-black">{subKey}:</span>
+                          <span className="font-mono text-black">
+                            {typeof subValue === "number"
+                              ? subValue.toFixed(4)
+                              : String(subValue)}
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              );
+            } else {
+              return (
+                <div key={key} className="flex justify-between">
+                  <span className="text-black">{key}:</span>
+                  <span className="font-mono text-black">{String(value)}</span>
+                </div>
+              );
+            }
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-2xl">
@@ -77,16 +129,32 @@ export default function Home() {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-semibold text-lg">{track.name}</h3>
+                    <h3 className="font-semibold text-lg text-black">
+                      {track.name}
+                    </h3>
                     <p className="text-gray-600">{track.artist}</p>
                     <p className="text-gray-500 text-sm">{track.album}</p>
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-500">
                       Popularity: {track.popularity}
                     </span>
+                    {track.acoustic_features && (
+                      <button
+                        onClick={() => toggleTrackDetails(track.id)}
+                        className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                      >
+                        {expandedTrack === track.id
+                          ? "Hide Features"
+                          : "Show Features"}
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {expandedTrack === track.id &&
+                  track.acoustic_features &&
+                  renderAcousticFeatures(track.acoustic_features)}
               </div>
             ))}
           </div>
