@@ -1,3 +1,3 @@
 ## Stu
 
-Introducing Agent Stu: reimagining the music discovery experience.
+Agent Stu: reimagining the music discovery experience.
