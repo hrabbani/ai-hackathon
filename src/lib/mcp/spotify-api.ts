@@ -93,9 +93,12 @@ export class SpotifyClient {
     }
   }
 
-  // Parse track names from responses for musicbrainz api
+  // Parse track names and isrcs from responses for musicbrainz api
   public parseTrackNames(results: any): any {
-    return results.tracks.items.map((track: any) => track.name);
+    return results.tracks.items.map((track: any) => ({
+      name: track.name,
+      isrc: track.external_ids.isrc,
+    }));
   }
 
   /**
