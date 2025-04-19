@@ -1,5 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { getAccessToken, getUserProfile } from "../../utils/spotify";
 
 interface Track {
   id: string;
@@ -13,12 +15,35 @@ interface SearchResults {
   tracks: Track[];
 }
 
+interface UserProfile {
+  display_name: string;
+}
+
 export default function Home() {
+  const searchParams = useSearchParams();
   const [userInput, setUserInput] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResults | null>(
-    null
-  );
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const handleAuth = async () => {
+      const code = searchParams?.get("code");
+      if (code) {
+        const accessToken = await getAccessToken(code);
+        if (accessToken) {
+          const profile = await getUserProfile(accessToken);
+          if (profile) {
+            setUserProfile(profile);
+            // Store the access token for future API calls
+            localStorage.setItem('spotify_access_token', accessToken);
+          }
+        }
+      }
+    };
+
+    handleAuth();
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,8 +71,17 @@ export default function Home() {
       setUserInput(""); // Clear input after submission
     }
   };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col items-center p-4">
+      {userProfile && (
+        <div className="w-full max-w-2xl mb-8">
+          <h1 className="text-2xl font-bold text-center">
+            Welcome, {userProfile.display_name}!
+          </h1>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit} className="w-full max-w-2xl">
         <div className="flex gap-2">
           <input
