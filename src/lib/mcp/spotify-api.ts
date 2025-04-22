@@ -16,7 +16,7 @@ requiredEnvVars.forEach((varName) => {
 });
 
 // Define interfaces for the different item types
-interface SpotifyTrack {
+export interface SpotifyTrack {
   id: string;
   name: string;
   uri: string;

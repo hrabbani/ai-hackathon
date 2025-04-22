@@ -3,15 +3,21 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import * as path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import dotenv from "dotenv";
+import { SpotifyTrack } from "@/lib/mcp/spotify-api";
 
 dotenv.config();
+
+interface ToolContentResponse {
+  type: string;
+  text: string;
+}
 
 // Initialize Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export async function findMusic(query: string) {
+export async function findMusic(query: string): Promise<SpotifyTrack[]> {
   console.error("Starting findMusic with query:", query);
   // Create a transport that communicates with the server
   const transport = new StdioClientTransport({
@@ -40,7 +46,7 @@ export async function findMusic(query: string) {
     console.log("Split queries:", queries);
 
     // Array to store all search results
-    const allSearchResults = [];
+    const allSearchResults: SpotifyTrack[] = [];
 
     // Perform search for each query
     for (const query of queries) {
@@ -51,17 +57,13 @@ export async function findMusic(query: string) {
           type: "track",
         },
       });
-      allSearchResults.push(
-        searchResult as { content: Array<{ type: string; text: string }> }
-      );
+
+      const results = searchResult.content as ToolContentResponse[];
+
+      allSearchResults.push(...JSON.parse(results[0].text).tracks);
     }
 
-    const combinedTracks = allSearchResults.flatMap((result) => {
-      const parsed = JSON.parse(result.content[0].text);
-      return parsed.tracks;
-    });
-
-    return { tracks: combinedTracks };
+    return allSearchResults;
 
     // return allSearchResults;
   } catch (error) {
