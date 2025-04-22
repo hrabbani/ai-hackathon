@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import Image from "next/image";
 
 declare global {
   interface Window {
@@ -8,9 +9,25 @@ declare global {
         name: string;
         getOAuthToken: (callback: (token: string) => void) => void;
         volume: number;
-      }) => any;
+      }) => SpotifyPlayerInstance;
     };
   }
+}
+
+interface SpotifyPlayerInstance {
+  addListener: {
+    (event: "ready", callback: (state: WebPlaybackReady) => void): void;
+    (
+      event: "player_state_changed",
+      callback: (state: PlayerState | null) => void
+    ): void;
+    (event: "not_ready", callback: (state: WebPlaybackReady) => void): void;
+  };
+  connect: () => Promise<boolean>;
+  disconnect: () => void;
+  previousTrack: () => void;
+  nextTrack: () => void;
+  togglePlay: () => void;
 }
 
 interface SpotifyPlayerProps {
@@ -38,47 +55,53 @@ interface WebPlaybackReady {
 }
 
 export function SpotifyPlayer({ accessToken }: SpotifyPlayerProps) {
-  const [player, setPlayer] = useState<any>(null);
+  const [player, setPlayer] = useState<SpotifyPlayerInstance | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState | null>(null);
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://sdk.scdn.co/spotify-player.js';
+    const script = document.createElement("script");
+    script.src = "https://sdk.scdn.co/spotify-player.js";
     script.async = true;
     document.body.appendChild(script);
 
     window.onSpotifyWebPlaybackSDKReady = () => {
       const spotifyPlayer = new window.Spotify.Player({
-        name: 'Web Playback SDK',
-        getOAuthToken: cb => cb(accessToken),
-        volume: 0.5
+        name: "Web Playback SDK",
+        getOAuthToken: (cb) => cb(accessToken),
+        volume: 0.5,
       });
 
-      spotifyPlayer.addListener('ready', ({ device_id }: WebPlaybackReady) => {
-        console.log('Ready with Device ID', device_id);
+      spotifyPlayer.addListener("ready", ({ device_id }: WebPlaybackReady) => {
+        console.log("Ready with Device ID", device_id);
         // Transfer playback to the new device
-        fetch('https://api.spotify.com/v1/me/player', {
-          method: 'PUT',
+        fetch("https://api.spotify.com/v1/me/player", {
+          method: "PUT",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             device_ids: [device_id],
-            play: false
-          })
+            play: false,
+          }),
         });
       });
 
-      spotifyPlayer.addListener('player_state_changed', (state: PlayerState) => {
-        if (!state) return;
-        setPlayerState(state);
-      });
+      spotifyPlayer.addListener(
+        "player_state_changed",
+        (state: PlayerState | null) => {
+          if (!state) return;
+          setPlayerState(state);
+        }
+      );
 
-      spotifyPlayer.addListener('not_ready', ({ device_id }: WebPlaybackReady) => {
-        console.log('Device ID has gone offline', device_id);
-      });
+      spotifyPlayer.addListener(
+        "not_ready",
+        ({ device_id }: WebPlaybackReady) => {
+          console.log("Device ID has gone offline", device_id);
+        }
+      );
 
       spotifyPlayer.connect().then((success: boolean) => {
         if (success) {
@@ -94,7 +117,7 @@ export function SpotifyPlayer({ accessToken }: SpotifyPlayerProps) {
         player.disconnect();
       }
     };
-  }, [accessToken]);
+  }, [accessToken, player]);
 
   if (!isActive) {
     return (
@@ -115,10 +138,12 @@ export function SpotifyPlayer({ accessToken }: SpotifyPlayerProps) {
             <h2 className="text-2xl font-bold mb-2">{currentTrack.name}</h2>
             <p className="text-gray-600">{currentTrack.artists[0].name}</p>
             {currentTrack.album.images[0] && (
-              <img
+              <Image
                 src={currentTrack.album.images[0].url}
                 alt={`${currentTrack.album.name} cover`}
-                className="w-64 h-64 mt-4 rounded-lg shadow-md"
+                width={256}
+                height={256}
+                className="mt-4 rounded-lg shadow-md"
               />
             )}
           </div>
@@ -127,7 +152,7 @@ export function SpotifyPlayer({ accessToken }: SpotifyPlayerProps) {
         {/* Controls */}
         <div className="flex items-center gap-4">
           <button
-            onClick={() => player.previousTrack()}
+            onClick={() => player?.previousTrack()}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
@@ -137,22 +162,30 @@ export function SpotifyPlayer({ accessToken }: SpotifyPlayerProps) {
           </button>
 
           <button
-            onClick={() => player.togglePlay()}
+            onClick={() => player?.togglePlay()}
             className="p-3 hover:bg-gray-100 rounded-full transition-colors"
           >
             {playerState?.paused ? (
-              <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
+              <svg
+                className="w-10 h-10"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
                 <path d="M8 5v14l11-7z" />
               </svg>
             ) : (
-              <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
+              <svg
+                className="w-10 h-10"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
             )}
           </button>
 
           <button
-            onClick={() => player.nextTrack()}
+            onClick={() => player?.nextTrack()}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
@@ -164,4 +197,4 @@ export function SpotifyPlayer({ accessToken }: SpotifyPlayerProps) {
       </div>
     </div>
   );
-} 
+}
