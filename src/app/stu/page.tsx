@@ -24,23 +24,31 @@ export default function Home() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await fetch("/api/music", {
+      console.log("Frontend: Sending request to agent API");
+
+      const response = await fetch("/api/agent", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: userInput }),
+        body: JSON.stringify({
+          action: "findMusic",
+          params: { query: userInput },
+        }),
       });
 
       if (!response.ok) {
-        console.log(response);
-        throw new Error("Failed to search for music");
+        const errorData = await response.json();
+        console.error("Frontend: API error response:", errorData);
+        throw new Error(errorData.details || "Failed to search for music");
       }
 
       const results = await response.json();
+      console.log("Frontend: Received results:", results);
       setSearchResults(results);
     } catch (error) {
-      console.error("Error finding music:", error);
+      console.error("Frontend: Error finding music:", error);
+      // You might want to add error state management here
     } finally {
       setIsLoading(false);
       setUserInput(""); // Clear input after submission

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { spotifyClient } from "./spotify-api";
 import { z } from "zod";
+import { spotifyClient } from "./spotify-api";
 
 /**
  * Initializes and configures the MCP server with Spotify capabilities.

@@ -1,10 +1,12 @@
-import { spotifyClient } from "@/lib/mcp/spotify-api";
+import { findMusic } from "@/agents/agentStu";
+// import { spotifyClient } from "@/lib/mcp/spotify-api";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
     const { query } = await request.json();
-    const results = await spotifyClient.search(query, "track");
+    const results = await findMusic(query);
+    // const results = await spotifyClient.search(query, "track");
     return NextResponse.json(results);
   } catch (error) {
     console.error("Error searching for music:", error);
