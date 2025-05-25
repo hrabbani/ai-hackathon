@@ -85,7 +85,7 @@ class AgentService {
     // Create fresh MCP connection for this request
     const transport = new StdioClientTransport({
       command: "ts-node",
-      args: [path.resolve("src/lib/mcp/index.ts")],
+      args: [path.resolve("src/services/index.ts")],
     });
 
     const client = new Client({
