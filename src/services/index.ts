@@ -1,6 +1,6 @@
 // import { connectServer } from "./server";
 
-import { connectServer } from "./server";
+import { connectServer } from "./server.js";
 
 /**
  * Main entry point for the Spotify MCP server.
